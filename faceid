@@ -1,0 +1,94 @@
+import cv2
+from tkinter import Tk, Label, Entry, Button, StringVar, messagebox, Toplevel
+from ultralytics import YOLO
+
+# Set the correct password
+CORRECT_PASSWORD = "person_access"
+
+# Initialize the YOLO model
+model = YOLO("yolov5s.pt")  # Replace with your model path
+
+def start_detection():
+    # Open the camera
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("Unable to open the camera")
+        return
+
+    while True:
+        success, frame = cap.read()
+        if not success:
+            print("Unable to read the camera image")
+            break
+
+        # Perform detection using the YOLO model
+        results = model.predict(source=frame, conf=0.5, iou=0.5, show=True)
+
+        person_detected = False
+
+        # Iterate over detection results
+        for result in results:
+            im0 = result.orig_img
+            det = result.boxes  # Get the bounding box coordinates
+
+            # Iterate over each detection box
+            if det is not None and len(det) > 0:
+                for box in det:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                    class_id = int(box.cls[0])  # Detected class ID
+                    class_name = model.names[class_id]  # Get class name
+
+                    if class_name in ["umbrella", "donut", "frisbee", "book"]:
+                        person_detected = True
+                        # Draw the bounding box
+                        cv2.rectangle(im0, (x1, y1), (x2, y2), (0, 255, 0), 3)
+                        cv2.putText(im0, "ID card Detected! Access granted!", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+            # Display verification result
+            if person_detected:
+                print("Person Detected: Access Granted")
+            else:
+                print("No Person Detected: Access Denied")
+
+        # Show detection results
+        cv2.imshow("YOLO Object Detection", im0)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+def verify_password():
+    entered_password = password_var.get()
+    if entered_password == CORRECT_PASSWORD:
+        password_window.destroy()
+        start_detection()
+    else:
+        messagebox.showerror("Error", "Incorrect password, please try again!")
+
+def open_password_window():
+    global password_var, password_window
+    password_window = Toplevel(root)
+    password_window.title("Password Verification")
+    password_window.geometry("300x150")
+    Label(password_window, text="Please enter the password:").pack(pady=10)
+    password_var = StringVar()
+    Entry(password_window, textvariable=password_var, show="*").pack()
+    Button(password_window, text="Confirm", command=verify_password).pack(pady=10)
+
+def start_face_recognition():
+    # Open the camera for detection or face recognition (this is a placeholder)
+    start_detection()
+
+# Create the main interface
+root = Tk()
+root.title("Select Verification Method")
+root.geometry("300x200")
+
+Label(root, text="Please select a verification method:").pack(pady=10)
+
+# Add selection buttons
+Button(root, text="Face Recognition", command=start_face_recognition).pack(pady=10)
+Button(root, text="Password Verification", command=open_password_window).pack(pady=10)
+
+root.mainloop()
